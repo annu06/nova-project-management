@@ -40,6 +40,8 @@ export default function Register() {
             <label htmlFor="name">Full name</label>
             <input
               id="name"
+              name="name"
+              autoComplete="name"
               value={name}
               onChange={(e) => setName(e.target.value)}
               required
@@ -49,7 +51,9 @@ export default function Register() {
             <label htmlFor="email">Email</label>
             <input
               id="email"
+              name="email"
               type="email"
+              autoComplete="email"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               required
@@ -59,7 +63,9 @@ export default function Register() {
             <label htmlFor="password">Password</label>
             <input
               id="password"
+              name="password"
               type="password"
+              autoComplete="new-password"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
               minLength={6}
