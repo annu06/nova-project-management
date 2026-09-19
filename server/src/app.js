@@ -8,7 +8,19 @@ import memberRoutes from './routes/members.js';
 
 const app = express();
 
-app.use(cors());
+// Allow the deployed client origin(s). Set CLIENT_ORIGIN to a comma-separated
+// list of allowed origins in production (e.g. https://novapjm.netlify.app).
+// If unset, all origins are allowed (convenient for local dev).
+const allowedOrigins = (process.env.CLIENT_ORIGIN || '')
+  .split(',')
+  .map((o) => o.trim())
+  .filter(Boolean);
+
+app.use(
+  cors({
+    origin: allowedOrigins.length ? allowedOrigins : true,
+  })
+);
 app.use(express.json());
 
 // Health check

@@ -1,5 +1,11 @@
 const TOKEN_KEY = 'nova_token';
 
+// In dev, requests go to "/api" and Vite proxies them to the local server.
+// In production, set VITE_API_URL to the deployed API origin, e.g.
+//   VITE_API_URL=https://nova-api.onrender.com
+// The client will then call `${VITE_API_URL}/api/...`.
+const API_BASE = `${import.meta.env.VITE_API_URL || ''}/api`;
+
 export function getToken() {
   return localStorage.getItem(TOKEN_KEY);
 }
@@ -18,7 +24,7 @@ async function request(path, { method = 'GET', body } = {}) {
   const token = getToken();
   if (token) headers.Authorization = `Bearer ${token}`;
 
-  const res = await fetch(`/api${path}`, {
+  const res = await fetch(`${API_BASE}${path}`, {
     method,
     headers,
     body: body ? JSON.stringify(body) : undefined,

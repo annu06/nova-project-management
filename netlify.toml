@@ -1,0 +1,16 @@
+# Netlify build configuration for the NOVA client (React + Vite).
+# The Express/MongoDB API is NOT hosted on Netlify — deploy it separately
+# (e.g. Render, Railway, Fly.io) and set VITE_API_URL in the Netlify UI:
+#   Site settings -> Environment variables -> VITE_API_URL = https://your-api-host
+
+[build]
+  base = "client"
+  command = "npm run build"
+  publish = "dist"
+
+# Single-page-app fallback: let React Router handle client-side routes
+# instead of returning Netlify's 404 on refresh/deep links.
+[[redirects]]
+  from = "/*"
+  to = "/index.html"
+  status = 200

@@ -90,4 +90,43 @@ The client proxies `/api` requests to the server during development.
 | GET    | `/api/projects/:id/members`     | List project members        |
 | POST   | `/api/projects/:id/members`     | Add a member by email       |
 | DELETE | `/api/projects/:id/members/:uid`| Remove a member             |
-```
+
+## Deployment
+
+The app has two parts that deploy separately:
+
+### Client → Netlify (static site)
+
+The repo includes `netlify.toml`, which tells Netlify to build from the
+`client/` folder and adds an SPA fallback so React Router routes work on
+refresh (this fixes the "Page not found" 404).
+
+1. In Netlify, create a site from this repo. The build settings come from
+   `netlify.toml` automatically (base `client`, command `npm run build`,
+   publish `dist`).
+2. Add an environment variable **`VITE_API_URL`** pointing at your deployed
+   API, e.g. `https://nova-api.onrender.com` (no trailing slash, no `/api`).
+3. Redeploy. The client will call `${VITE_API_URL}/api/...`.
+
+> Netlify only hosts the static frontend. It cannot run the Express server —
+> deploy the API separately (below).
+
+### Server → Render / Railway / Fly.io (Node service)
+
+1. Create a new Web Service from this repo with root directory `server`.
+2. Build command `npm install`, start command `npm start`.
+3. Set environment variables:
+   - `MONGODB_URI` — a MongoDB Atlas connection string (free tier works)
+   - `JWT_SECRET` — a long random string
+   - `CLIENT_ORIGIN` — your Netlify URL, e.g. `https://novapjm.netlify.app`
+   - `PORT` — usually provided by the host automatically
+
+For the database, the simplest cloud option is a free
+[MongoDB Atlas](https://www.mongodb.com/atlas) cluster; use its connection
+string as `MONGODB_URI`.
+
+### Note on browser console noise
+
+Errors mentioning `contentscript.js`, `inpage.js`, `MetaMask`, or
+`MaxListenersExceededWarning` come from browser extensions (e.g. crypto
+wallets), not from NOVA. They can be ignored.
