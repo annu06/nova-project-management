@@ -2,23 +2,30 @@
 
 > Plan. Collaborate. Deliver.
 
-NOVA is a full-stack project management application that lets teams create projects,
-manage tasks on a Kanban board, invite members, and track progress from a single app.
+NOVA is a project management application that lets teams create projects,
+manage tasks on a Kanban board, invite members, and track progress from a
+single app.
 
 Built for the Full Stack Development Intern Assignment.
 
 ## Tech Stack
 
-| Layer          | Technology                          |
-| -------------- | ----------------------------------- |
-| Frontend       | React 18 + Vite + React Router      |
-| Backend / API  | Node.js + Express                   |
-| Database       | MongoDB (Mongoose)                  |
-| Authentication | JWT + bcrypt                        |
+| Layer          | Technology                              |
+| -------------- | --------------------------------------- |
+| Frontend       | React 18 + Vite + React Router          |
+| Backend        | Supabase (hosted Postgres)              |
+| Data access    | `@supabase/supabase-js` (from the client) |
+| Authentication | Supabase Auth (email + password)        |
+| Authorization  | Postgres Row Level Security (RLS)       |
+| Hosting        | Netlify (static client)                 |
+
+NOVA uses **Supabase as the entire backend** — there is no custom server to
+run or deploy. The React client talks directly to Supabase, and Row Level
+Security in the database enforces who can read and write each row.
 
 ## Features
 
-- **Authentication** — register/login with hashed passwords and JWT sessions
+- **Authentication** — sign up / log in with Supabase Auth
 - **Projects** — create, edit, delete projects with descriptions and status
 - **Tasks** — Kanban board (To Do / In Progress / Done), priorities, assignees, due dates
 - **Members** — invite registered users to a project and assign tasks to them
@@ -29,109 +36,80 @@ Built for the Full Stack Development Intern Assignment.
 
 ```
 FSinternship/
-├── server/          Express API + MongoDB (Mongoose) + JWT auth
+├── client/              React (Vite) single-page app
 │   ├── src/
-│   │   ├── db.js            Database connection (Mongoose)
-│   │   ├── auth.js          JWT + password helpers, middleware
-│   │   ├── app.js           Express app (routes + error handling)
-│   │   ├── server.js        App entry point
-│   │   ├── models/          User, Project, Task
-│   │   └── routes/          auth, projects, tasks, members
-│   ├── scripts/api-check.js Live end-to-end API check
+│   │   ├── supabaseClient.js  Supabase client (reads env vars)
+│   │   ├── api.js             Data layer (projects, tasks, members)
+│   │   ├── auth.jsx           Auth context (Supabase Auth)
+│   │   ├── pages/             Login, Register, Dashboard, Project, etc.
+│   │   └── components/        Layout, ProtectedRoute, Modal
+│   ├── .env.example
 │   └── package.json
-└── client/          React (Vite) single-page app
-    ├── src/
-    │   ├── api.js           API client
-    │   ├── auth.jsx         Auth context
-    │   ├── pages/           Login, Register, Dashboard, Project, etc.
-    │   └── components/      Layout, ProtectedRoute, etc.
-    └── package.json
+├── supabase/
+│   └── schema.sql       Tables + RLS policies + triggers (run in Supabase)
+└── netlify.toml         Netlify build + SPA routing config
 ```
+
+## Data Model
+
+| Table             | Purpose                                             |
+| ----------------- | --------------------------------------------------- |
+| `profiles`        | One row per auth user (name, email)                 |
+| `projects`        | Owned by a user; has a status                       |
+| `project_members` | Join table — which users belong to which project    |
+| `tasks`           | Belong to a project; optionally assigned to a member |
+
+**Access rules (enforced by RLS):**
+
+- A user can read a project only if they are a member of it.
+- Only the owner can update/delete a project or manage its members.
+- Any member can read and manage tasks in their projects.
 
 ## Getting Started
 
-Make sure MongoDB is running locally (default `mongodb://127.0.0.1:27017/nova`).
+### 1. Create a Supabase project
 
-### 1. Server (API)
+1. Sign up at [supabase.com](https://supabase.com) and create a new project
+   (the free tier is enough).
+2. Open **SQL Editor → New query**, paste the contents of
+   [`supabase/schema.sql`](supabase/schema.sql), and click **Run**. This
+   creates the tables, RLS policies, and triggers.
+3. (Recommended for demos) Under **Authentication → Providers → Email**, turn
+   **off** "Confirm email" so new signups can log in immediately.
+4. Go to **Project Settings → API** and copy the **Project URL** and the
+   **anon/public key**.
 
-```bash
-cd server
-npm install
-npm run dev        # starts API on http://localhost:4000
-npm run check      # optional: run the live end-to-end API check
-```
-
-### 2. Client (web app)
+### 2. Run the client
 
 ```bash
 cd client
+cp .env.example .env     # then fill in your Supabase URL + anon key
 npm install
-npm run dev        # starts app on http://localhost:5173
+npm run dev              # http://localhost:5173
 ```
 
-The client proxies `/api` requests to the server during development.
+`client/.env`:
 
-## API Overview
-
-| Method | Endpoint                        | Description                 |
-| ------ | ------------------------------- | --------------------------- |
-| POST   | `/api/auth/register`            | Create an account           |
-| POST   | `/api/auth/login`               | Log in, returns JWT         |
-| GET    | `/api/auth/me`                  | Current user                |
-| GET    | `/api/projects`                 | List my projects            |
-| POST   | `/api/projects`                 | Create a project            |
-| GET    | `/api/projects/:id`             | Project detail + progress   |
-| PUT    | `/api/projects/:id`             | Update a project            |
-| DELETE | `/api/projects/:id`             | Delete a project            |
-| GET    | `/api/projects/:id/tasks`       | List tasks in a project     |
-| POST   | `/api/projects/:id/tasks`       | Create a task               |
-| PUT    | `/api/tasks/:id`                | Update a task               |
-| DELETE | `/api/tasks/:id`                | Delete a task               |
-| GET    | `/api/projects/:id/members`     | List project members        |
-| POST   | `/api/projects/:id/members`     | Add a member by email       |
-| DELETE | `/api/projects/:id/members/:uid`| Remove a member             |
-
-## Deployment
-
-In production the Express server can serve the built React client, so the
-whole app runs as **one service on a single URL** — no CORS setup, no separate
-frontend host. When `client/dist` exists, the server serves it automatically
-and falls back to `index.html` for client-side routes.
-
-### Recommended: one-click deploy to Render (single service)
-
-The repo includes `render.yaml`, a Render Blueprint that builds the client,
-installs the server, and runs everything as one web service.
-
-1. Create a free [MongoDB Atlas](https://www.mongodb.com/atlas) cluster and
-   copy its connection string.
-2. In [Render](https://render.com), click **New + → Blueprint** and select
-   this GitHub repo. Render reads `render.yaml` automatically.
-3. When prompted, paste your Atlas string as **`MONGODB_URI`**. `JWT_SECRET`
-   is generated for you.
-4. Deploy. Your app is live at the single Render URL (API under `/api`).
-
-### Alternative: Docker
-
-A multi-stage `Dockerfile` builds the client and runs the single-service app:
-
-```bash
-docker build -t nova .
-docker run -p 4000:4000 -e MONGODB_URI="<atlas-uri>" -e JWT_SECRET="<secret>" nova
-# open http://localhost:4000
+```
+VITE_SUPABASE_URL=https://your-project-ref.supabase.co
+VITE_SUPABASE_ANON_KEY=your-anon-public-key
 ```
 
-### Alternative: split hosting (Netlify client + separate API)
+## Deployment (Netlify)
 
-If you prefer to host the frontend on Netlify:
+Because Supabase is the backend, deploying NOVA means deploying only the
+static React client.
 
-1. The included `netlify.toml` builds from `client/` with an SPA fallback (this
-   fixes the "Page not found" 404). Create a Netlify site from this repo.
-2. Set **`VITE_API_URL`** in Netlify to your deployed API origin, e.g.
-   `https://nova.onrender.com` (no trailing slash, no `/api`).
-3. Deploy the API separately (Render/Railway/Fly.io) with root dir `server`,
-   and set `MONGODB_URI`, `JWT_SECRET`, and `CLIENT_ORIGIN` (your Netlify URL)
-   so CORS allows the frontend.
+1. Create a Netlify site from this GitHub repo. Build settings come from
+   `netlify.toml` automatically (base `client`, command `npm run build`,
+   publish `dist`, with an SPA fallback so React Router routes work on refresh).
+2. In **Site settings → Environment variables**, add:
+   - `VITE_SUPABASE_URL` = your Supabase project URL
+   - `VITE_SUPABASE_ANON_KEY` = your anon/public key
+3. Deploy. The site is live and talks directly to Supabase.
+
+> The anon key is meant to be public; RLS is what protects your data. Never put
+> the Supabase **service_role** key in the client.
 
 ### Note on browser console noise
 

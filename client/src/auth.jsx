@@ -1,49 +1,72 @@
 import { createContext, useContext, useEffect, useState } from 'react';
-import { api, getToken, setToken } from './api.js';
+import { supabase } from './supabaseClient.js';
 
 const AuthContext = createContext(null);
+
+/** Map a Supabase auth user into the app's { id, name, email } shape. */
+function toAppUser(authUser) {
+  if (!authUser) return null;
+  return {
+    id: authUser.id,
+    email: authUser.email || '',
+    name:
+      (authUser.user_metadata && authUser.user_metadata.name) ||
+      (authUser.email ? authUser.email.split('@')[0] : ''),
+  };
+}
 
 export function AuthProvider({ children }) {
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
 
-  // On mount, if we have a token, fetch the current user.
   useEffect(() => {
     let active = true;
-    async function bootstrap() {
-      if (!getToken()) {
-        setLoading(false);
-        return;
-      }
-      try {
-        const { user } = await api.me();
-        if (active) setUser(user);
-      } catch {
-        setToken(null);
-      } finally {
-        if (active) setLoading(false);
-      }
-    }
-    bootstrap();
+
+    // Load any existing session on mount.
+    supabase.auth.getSession().then(({ data }) => {
+      if (!active) return;
+      setUser(toAppUser(data.session?.user ?? null));
+      setLoading(false);
+    });
+
+    // React to future auth changes (login, logout, token refresh).
+    const { data: sub } = supabase.auth.onAuthStateChange((_event, session) => {
+      setUser(toAppUser(session?.user ?? null));
+    });
+
     return () => {
       active = false;
+      sub.subscription.unsubscribe();
     };
   }, []);
 
   async function login(email, password) {
-    const { token, user } = await api.login({ email, password });
-    setToken(token);
-    setUser(user);
+    const { error } = await supabase.auth.signInWithPassword({
+      email,
+      password,
+    });
+    if (error) throw new Error(error.message);
   }
 
   async function register(name, email, password) {
-    const { token, user } = await api.register({ name, email, password });
-    setToken(token);
-    setUser(user);
+    const { data, error } = await supabase.auth.signUp({
+      email,
+      password,
+      options: { data: { name } },
+    });
+    if (error) throw new Error(error.message);
+
+    // If email confirmation is enabled, there is no session yet.
+    if (!data.session) {
+      throw new Error(
+        'Account created. Please check your email to confirm, then log in. ' +
+          '(You can disable email confirmation in Supabase Auth settings.)'
+      );
+    }
   }
 
-  function logout() {
-    setToken(null);
+  async function logout() {
+    await supabase.auth.signOut();
     setUser(null);
   }
 

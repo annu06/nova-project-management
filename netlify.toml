@@ -1,7 +1,9 @@
-# Netlify build configuration for the NOVA client (React + Vite).
-# The Express/MongoDB API is NOT hosted on Netlify — deploy it separately
-# (e.g. Render, Railway, Fly.io) and set VITE_API_URL in the Netlify UI:
-#   Site settings -> Environment variables -> VITE_API_URL = https://your-api-host
+# Netlify build configuration for NOVA (React + Vite + Supabase).
+# The backend is Supabase (Postgres + Auth + RLS) — there is no server to host.
+# Set these environment variables in the Netlify UI
+# (Site settings -> Environment variables):
+#   VITE_SUPABASE_URL       = https://<project-ref>.supabase.co
+#   VITE_SUPABASE_ANON_KEY  = <your anon/public key>
 
 [build]
   base = "client"
