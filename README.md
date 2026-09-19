@@ -93,37 +93,45 @@ The client proxies `/api` requests to the server during development.
 
 ## Deployment
 
-The app has two parts that deploy separately:
+In production the Express server can serve the built React client, so the
+whole app runs as **one service on a single URL** — no CORS setup, no separate
+frontend host. When `client/dist` exists, the server serves it automatically
+and falls back to `index.html` for client-side routes.
 
-### Client → Netlify (static site)
+### Recommended: one-click deploy to Render (single service)
 
-The repo includes `netlify.toml`, which tells Netlify to build from the
-`client/` folder and adds an SPA fallback so React Router routes work on
-refresh (this fixes the "Page not found" 404).
+The repo includes `render.yaml`, a Render Blueprint that builds the client,
+installs the server, and runs everything as one web service.
 
-1. In Netlify, create a site from this repo. The build settings come from
-   `netlify.toml` automatically (base `client`, command `npm run build`,
-   publish `dist`).
-2. Add an environment variable **`VITE_API_URL`** pointing at your deployed
-   API, e.g. `https://nova-api.onrender.com` (no trailing slash, no `/api`).
-3. Redeploy. The client will call `${VITE_API_URL}/api/...`.
+1. Create a free [MongoDB Atlas](https://www.mongodb.com/atlas) cluster and
+   copy its connection string.
+2. In [Render](https://render.com), click **New + → Blueprint** and select
+   this GitHub repo. Render reads `render.yaml` automatically.
+3. When prompted, paste your Atlas string as **`MONGODB_URI`**. `JWT_SECRET`
+   is generated for you.
+4. Deploy. Your app is live at the single Render URL (API under `/api`).
 
-> Netlify only hosts the static frontend. It cannot run the Express server —
-> deploy the API separately (below).
+### Alternative: Docker
 
-### Server → Render / Railway / Fly.io (Node service)
+A multi-stage `Dockerfile` builds the client and runs the single-service app:
 
-1. Create a new Web Service from this repo with root directory `server`.
-2. Build command `npm install`, start command `npm start`.
-3. Set environment variables:
-   - `MONGODB_URI` — a MongoDB Atlas connection string (free tier works)
-   - `JWT_SECRET` — a long random string
-   - `CLIENT_ORIGIN` — your Netlify URL, e.g. `https://novapjm.netlify.app`
-   - `PORT` — usually provided by the host automatically
+```bash
+docker build -t nova .
+docker run -p 4000:4000 -e MONGODB_URI="<atlas-uri>" -e JWT_SECRET="<secret>" nova
+# open http://localhost:4000
+```
 
-For the database, the simplest cloud option is a free
-[MongoDB Atlas](https://www.mongodb.com/atlas) cluster; use its connection
-string as `MONGODB_URI`.
+### Alternative: split hosting (Netlify client + separate API)
+
+If you prefer to host the frontend on Netlify:
+
+1. The included `netlify.toml` builds from `client/` with an SPA fallback (this
+   fixes the "Page not found" 404). Create a Netlify site from this repo.
+2. Set **`VITE_API_URL`** in Netlify to your deployed API origin, e.g.
+   `https://nova.onrender.com` (no trailing slash, no `/api`).
+3. Deploy the API separately (Render/Railway/Fly.io) with root dir `server`,
+   and set `MONGODB_URI`, `JWT_SECRET`, and `CLIENT_ORIGIN` (your Netlify URL)
+   so CORS allows the frontend.
 
 ### Note on browser console noise
 

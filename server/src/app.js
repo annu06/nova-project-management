@@ -1,10 +1,15 @@
 import express from 'express';
 import cors from 'cors';
+import path from 'node:path';
+import { fileURLToPath } from 'node:url';
+import fs from 'node:fs';
 
 import authRoutes from './routes/auth.js';
 import projectRoutes from './routes/projects.js';
 import taskRoutes from './routes/tasks.js';
 import memberRoutes from './routes/members.js';
+
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
 const app = express();
 
@@ -34,6 +39,20 @@ app.use('/api', memberRoutes); // /api/projects/:id/members ...
 
 // 404 for unknown API routes
 app.use('/api', (_req, res) => res.status(404).json({ error: 'Not found' }));
+
+// --- Serve the built client (single-service deployment) ---
+// If the client has been built into ../../client/dist, serve it and fall back
+// to index.html for client-side routes. This lets the API and web app run as
+// one service on a single URL (no CORS, no separate VITE_API_URL needed).
+const clientDist = path.resolve(__dirname, '../../client/dist');
+if (fs.existsSync(clientDist)) {
+  app.use(express.static(clientDist));
+  // SPA fallback: any non-API GET returns index.html so React Router works.
+  app.get('*', (_req, res) => {
+    res.sendFile(path.join(clientDist, 'index.html'));
+  });
+  console.log(`[server] serving client build from ${clientDist}`);
+}
 
 // Central error handler
 // eslint-disable-next-line no-unused-vars

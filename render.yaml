@@ -1,0 +1,33 @@
+# Render Blueprint for NOVA (single-service deployment).
+# Builds the React client and serves it from the Express API, so the whole
+# app runs on ONE URL with no CORS setup and no separate frontend host.
+#
+# Deploy: push to GitHub, then in Render click "New +" -> "Blueprint" and
+# point it at this repo. Render reads this file automatically.
+#
+# You only need to provide MONGODB_URI (a free MongoDB Atlas connection
+# string). JWT_SECRET is generated for you.
+
+services:
+  - type: web
+    name: nova
+    runtime: node
+    plan: free
+    # Install deps for both packages and build the client into client/dist,
+    # which the server serves in production.
+    # Server runs with production deps only (skips mongodb-memory-server, a
+    # heavy dev-only download). Client needs its dev deps (Vite) to build.
+    buildCommand: npm install --omit=dev --prefix server && npm install --prefix client && npm run build --prefix client
+    startCommand: npm start --prefix server
+    healthCheckPath: /api/health
+    envVars:
+      - key: NODE_VERSION
+        value: "20"
+      - key: JWT_SECRET
+        generateValue: true # Render generates a strong random secret
+      - key: MONGODB_URI
+        sync: false # paste your MongoDB Atlas connection string in the dashboard
+      # CLIENT_ORIGIN is unnecessary in single-service mode (same origin),
+      # but leave it settable in case you split the frontend out later.
+      - key: CLIENT_ORIGIN
+        sync: false
